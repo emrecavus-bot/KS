@@ -653,7 +653,7 @@ function render(){
   const visible=bl
     .filter(d=>FILTRE==="hepsi"||d.tur===FILTRE)
     .filter(d=>!SEARCH||d.aciklama.toLowerCase().includes(SEARCH.toLowerCase()))
-    .slice().reverse();
+    .slice();
 
   const tbl=document.getElementById("txTable");
   const empty=document.getElementById("txEmpty");
