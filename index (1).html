@@ -769,13 +769,17 @@ function openDetay(id){
   document.getElementById("detayOv").classList.add("show");
 }
 function closeDetay(){document.getElementById("detayOv").classList.remove("show");SEL_ID=null;}
-function showConfirm(){document.getElementById("detayOv").classList.remove("show");document.getElementById("confirmOv").classList.add("show");}
+function showConfirm(){
+  window.PENDING_DELETE = DATA.find(d=>d.id===SEL_ID);
+  document.getElementById("detayOv").classList.remove("show");
+  document.getElementById("confirmOv").classList.add("show");
+}
 function cancelConfirm(){document.getElementById("confirmOv").classList.remove("show");document.getElementById("detayOv").classList.add("show");}
 function doDelete(){
-  const deleteId = SEL_ID;
-  const item = DATA.find(d=>d.id===deleteId);
-  DATA = DATA.filter(d=>d.id!==deleteId);
+  const item = window.PENDING_DELETE;
+  if(item) DATA = DATA.filter(d=>d.id!==item.id);
   SEL_ID = null;
+  window.PENDING_DELETE = null;
   save();
   document.getElementById("confirmOv").classList.remove("show");
   render();
