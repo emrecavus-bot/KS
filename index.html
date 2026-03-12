@@ -769,9 +769,26 @@ function openDetay(id){
   document.getElementById("detayOv").classList.add("show");
 }
 function closeDetay(){document.getElementById("detayOv").classList.remove("show");SEL_ID=null;}
-function showConfirm(){document.getElementById("detayOv").classList.remove("show");document.getElementById("confirmOv").classList.add("show");}
+function showConfirm(){
+  window.PENDING_DELETE = DATA.find(d=>d.id===SEL_ID);
+  document.getElementById("detayOv").classList.remove("show");
+  document.getElementById("confirmOv").classList.add("show");
+}
 function cancelConfirm(){document.getElementById("confirmOv").classList.remove("show");document.getElementById("detayOv").classList.add("show");}
-function doDelete(){DATA=DATA.filter(d=>d.id!==SEL_ID);save();SEL_ID=null;document.getElementById("confirmOv").classList.remove("show");render();}
+function doDelete(){
+  const item = window.PENDING_DELETE;
+  if(item) DATA = DATA.filter(d=>d.id!==item.id);
+  SEL_ID = null;
+  window.PENDING_DELETE = null;
+  save();
+  document.getElementById("confirmOv").classList.remove("show");
+  render();
+  showToast("Silindi");
+  if(item){
+    const bl=withBalance();
+    sendToSheets(item, bl.length>0?bl[bl.length-1].balance:0, "delete");
+  }
+}
 
 function dTipDegisti(val){
   document.getElementById("fDovizTipManuel").style.display=val==="diger"?"block":"none";
@@ -1001,7 +1018,39 @@ function ayarlariKaydet(){
   saveAyarlar();closeAyarlar();render();applyRenkler();showToast("✓ Ayarlar kaydedildi");
 }
 
-document.addEventListener("DOMContentLoaded",()=>{render();applyRenkler();});
+document.addEventListener("DOMContentLoaded",()=>{
+  applyRenkler();
+  loadFromSheets();
+});
+
+async function loadFromSheets(){
+  setSyncDot("loading");
+  try{
+    const res = await fetch(SHEETS_URL+"?action=getAll");
+    const rows = await res.json();
+    if(!Array.isArray(rows) || rows.length===0){ render(); setSyncDot("ok"); return; }
+    DATA = rows.map((r,i)=>({
+      id: Date.now()+i,
+      tarih: r.tarih,
+      nakit: r.nakit,
+      cari: r.cari||null,
+      doviz: r.doviz?parseFloat(r.doviz):null,
+      doviz_tip: r.doviz_tip||null,
+      gir_cik: r.gir_cik||null,
+      tur: r.tur||"gider",
+      aciklama: r.aciklama||"",
+      synced: true
+    }));
+    save();
+    render();
+    setSyncDot("ok");
+    showToast("✓ Sheets'ten yüklendi ("+rows.length+" kayıt)");
+  }catch(e){
+    setSyncDot("err");
+    render();
+    showToast("Sheets'ten yüklenemedi",false);
+  }
+}
 </script>
 </body>
 </html>
