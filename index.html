@@ -293,35 +293,35 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
 <div class="overlay" id="newOv" onclick="closeNew()">
   <div class="sheet" style="max-height:95vh" onclick="event.stopPropagation()">
     <div class="handle"></div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <input class="form-input" type="text" id="fAciklama" placeholder="Açıklama..." style="flex:1;font-size:16px;font-weight:600;margin-bottom:0"/>
-      <input class="form-input" type="date" id="fTarih" style="width:130px;font-size:12px;color:var(--muted);margin-bottom:0"/>
-    </div>
-
     <div class="form-row">
       <div>
         <label class="form-label">A — CARİ</label>
-        <input class="form-input" type="number" id="fCari" placeholder="—" style="background:#FFFFF0;border-color:#F6E05E"/>
+        <input class="form-input" type="number" id="fCari" placeholder="—" style="background:var(--a-bg,#FFFFF0);border-color:var(--a-border,#F6E05E)"/>
       </div>
     </div>
 
     <div class="form-row">
       <div>
         <label class="form-label">B — NAKİT (₺) *</label>
-        <input class="form-input" type="number" id="fTutar" placeholder="0" style="font-weight:700;background:#F0FFF4;border-color:#68D391"/>
+        <input class="form-input" type="number" id="fTutar" placeholder="0" style="font-weight:700;background:var(--b-bg,#F0FFF4);border-color:var(--b-border,#68D391)"/>
       </div>
     </div>
 
     <div class="form-row">
       <div>
         <label class="form-label">C — $/£ Miktar</label>
-        <input class="form-input" type="number" id="fDoviz" placeholder="—"/>
+        <input class="form-input" type="number" id="fDoviz" placeholder="—" style="background:#EBF8FF;border-color:#3182CE"/>
       </div>
       <div>
         <label class="form-label">D — Tip</label>
-        <select class="form-input" id="fDovizTip" onchange="dTipDegisti(this.value)"></select>
+        <select class="form-input" id="fDovizTip" onchange="dTipDegisti(this.value)" style="background:var(--d-bg,#EBF8FF);border-color:var(--d-border,#3182CE)"></select>
         <input class="form-input" type="text" id="fDovizTipManuel" placeholder="Manuel yaz..." style="display:none;margin-top:-4px"/>
       </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <input class="form-input" type="text" id="fAciklama" placeholder="Açıklama..." style="flex:1;font-size:16px;font-weight:600;margin-bottom:0"/>
+      <input class="form-input" type="date" id="fTarih" style="width:130px;font-size:12px;color:var(--muted);margin-bottom:0"/>
     </div>
 
     <div class="form-row">
@@ -354,33 +354,55 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
           <span style="font-size:13px;font-weight:600;min-width:60px">A — CARİ</span>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--muted)">Arka plan</span>
-            <input type="color" value="#FEFCBF" id="aRenk" onchange="AYARLAR.a_renk=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+            <input type="color" value="#FEFCBF" id="aRenk" oninput="AYARLAR.a_renk=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--muted)">Kenarlık</span>
-            <input type="color" value="#D69E2E" id="aBorder" onchange="AYARLAR.a_border=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+            <input type="color" value="#D69E2E" id="aBorder" oninput="AYARLAR.a_border=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:13px;font-weight:600;min-width:60px">B — NAKİT</span>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--muted)">Arka plan</span>
-            <input type="color" value="#F0FFF4" id="bRenk" onchange="AYARLAR.b_renk=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+            <input type="color" value="#F0FFF4" id="bRenk" oninput="AYARLAR.b_renk=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--muted)">Kenarlık</span>
-            <input type="color" value="#38A169" id="bBorder" onchange="AYARLAR.b_border=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+            <input type="color" value="#38A169" id="bBorder" oninput="AYARLAR.b_border=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:13px;font-weight:600;min-width:60px">C — KART</span>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--muted)">Arka plan</span>
-            <input type="color" value="#EBF8FF" id="cRenk" onchange="AYARLAR.c_renk=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+            <input type="color" value="#EBF8FF" id="cRenk" oninput="AYARLAR.c_renk=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--muted)">Kenarlık</span>
-            <input type="color" value="#3182CE" id="cBorder" onchange="AYARLAR.c_border=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+            <input type="color" value="#3182CE" id="cBorder" oninput="AYARLAR.c_border=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:13px;font-weight:600;min-width:60px">D — TİP</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--muted)">Arka plan</span>
+            <input type="color" value="#EBF8FF" id="dRenk" oninput="AYARLAR.d_renk=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--muted)">Kenarlık</span>
+            <input type="color" value="#3182CE" id="dBorder" oninput="AYARLAR.d_border=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:13px;font-weight:600;min-width:60px">E — AÇIKLAMA</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--muted)">Arka plan</span>
+            <input type="color" value="#FAF5FF" id="eRenk" oninput="AYARLAR.e_renk=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--muted)">Kenarlık</span>
+            <input type="color" value="#9F7AEA" id="eBorder" oninput="AYARLAR.e_border=this.value;applyRenkler()" style="width:36px;height:30px;border-radius:6px;border:1px solid var(--border);cursor:pointer;padding:2px"/>
           </div>
         </div>
       </div>
@@ -529,21 +551,7 @@ function onRenkChange(){
   document.getElementById("fDoviz").style.background = c;
   AYARLAR.renkA = a; AYARLAR.renkB = b; AYARLAR.renkC = c;
 }
-function applyRenkler(){
-  const a = AYARLAR.renkA || "#FEFCBF";
-  const b = AYARLAR.renkB || "#FFFFFF";
-  const c = AYARLAR.renkC || "#FFFFFF";
-  const fCari = document.getElementById("fCari");
-  const fTutar = document.getElementById("fTutar");
-  const fDoviz = document.getElementById("fDoviz");
-  if(fCari){ fCari.style.background=a; fCari.style.borderColor=a!=="#FFFFFF"?a:""; }
-  if(fTutar){ fTutar.style.background=b; }
-  if(fDoviz){ fDoviz.style.background=c; }
-  // Update color pickers in settings
-  if(document.getElementById("renkA")) document.getElementById("renkA").value=a;
-  if(document.getElementById("renkB")) document.getElementById("renkB").value=b;
-  if(document.getElementById("renkC")) document.getElementById("renkC").value=c;
-}
+
 function saveAyarlar(){
   try{localStorage.setItem(SK_AYAR,JSON.stringify(AYARLAR));}catch(e){}
 }
@@ -587,12 +595,17 @@ async function sendToSheets(item,balance){
 }
 
 function applyRenkler(){
-  const a = document.getElementById("fCari");
-  const b = document.getElementById("fTutar");
-  const c = document.getElementById("fDoviz");
-  if(a){ a.style.background=AYARLAR.a_renk||"#FEFCBF"; a.style.borderColor=AYARLAR.a_border||"#D69E2E"; }
-  if(b){ b.style.background=AYARLAR.b_renk||"#F0FFF4"; b.style.borderColor=AYARLAR.b_border||"#38A169"; }
-  if(c){ c.style.background=AYARLAR.c_renk||"#EBF8FF"; c.style.borderColor=AYARLAR.c_border||"#3182CE"; }
+  const ids = {
+    fCari:     [AYARLAR.a_renk||"#FFFFF0", AYARLAR.a_border||"#F6E05E"],
+    fTutar:    [AYARLAR.b_renk||"#F0FFF4", AYARLAR.b_border||"#68D391"],
+    fDoviz:    [AYARLAR.c_renk||"#EBF8FF", AYARLAR.c_border||"#3182CE"],
+    fDovizTip: [AYARLAR.d_renk||"#EBF8FF", AYARLAR.d_border||"#3182CE"],
+    fAciklama: [AYARLAR.e_renk||"#FAF5FF", AYARLAR.e_border||"#9F7AEA"],
+  };
+  Object.entries(ids).forEach(([id,[bg,bc]])=>{
+    const el=document.getElementById(id);
+    if(el){el.style.setProperty("background",bg,"important");el.style.setProperty("border-color",bc,"important");}
+  });
 }
 
 function buildDropdown(){
@@ -811,14 +824,16 @@ function openNew(){
 }
 function closeNew(){
   document.getElementById("newOv").classList.remove("show");
-  EDITING_ID=null;
+  // EDITING_ID is cleared by saveNew, not here
   document.querySelector(".save-btn").textContent="Kaydet";
 }
 
 function openDuzenle(){
   const d = DATA.find(x=>x.id===SEL_ID);
   if(!d) return;
+  const editId = SEL_ID;
   closeDetay();
+  EDITING_ID = editId;
   // Pre-fill form
   document.getElementById("fTarih").value = d.tarih||"";
   document.getElementById("fTutar").value = d.nakit||"";
@@ -832,8 +847,6 @@ function openDuzenle(){
   document.getElementById("fGManuel").style.display = "none";
   document.getElementById("fGirCikManuel").style.display = "none";
   // Mark as editing
-  EDITING_ID = SEL_ID;
-  SEL_ID = null;
   document.getElementById("newOv").classList.add("show");
   // Change button text
   document.querySelector(".save-btn").textContent = "💾 Güncelle";
@@ -844,6 +857,7 @@ async function saveNew(){
   const tutar=document.getElementById("fTutar").value;
   const aciklama=document.getElementById("fAciklama").value;
   if(!tutar||!aciklama){showToast("Tutar ve açıklama gerekli",false);return;}
+  if(!SEL_G){showToast("G — Tür seçmelisin!",false);return;}
   const nakit=+tutar; // pozitif=gelir, negatif=gider - kullanıcı işareti girer
   const dovizVal=document.getElementById("fDoviz").value;
   const dts=document.getElementById("fDovizTip").value;
@@ -973,10 +987,10 @@ function hEkle(){
   renderAyarlar();
 }
 function ayarlariKaydet(){
-  saveAyarlar();closeAyarlar();render();showToast("✓ Ayarlar kaydedildi");
+  saveAyarlar();closeAyarlar();render();applyRenkler();showToast("✓ Ayarlar kaydedildi");
 }
 
-document.addEventListener("DOMContentLoaded",render);
+document.addEventListener("DOMContentLoaded",()=>{render();applyRenkler();});
 </script>
 </body>
 </html>
