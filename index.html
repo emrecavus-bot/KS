@@ -582,30 +582,21 @@ function showToast(msg,ok=true){
   t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3000);
 }
 
-async function sendToSheets(item, balance, isUpdate){
+async function sendToSheets(item, balance, action){
+  // action: "add" | "update" | "delete"
   setSyncDot("loading");
   try{
     const p = new URLSearchParams({
+      action: action||"add",
       tarih: item.tarih, nakit: item.nakit, tur: item.tur,
       aciklama: item.aciklama, cari: item.cari||"", doviz: item.doviz||"",
       doviz_tip: item.doviz_tip||"", gir_cik: item.gir_cik||"",
-      h_val: item.h_val||"", bakiye: balance
+      bakiye: balance
     });
-    if(isUpdate && item.sheetsRow){
-      p.set("rowIndex", item.sheetsRow);
-    }
-    const res = await fetch(SHEETS_URL+"?"+p.toString(),{method:"GET",mode:"no-cors"});
-    // no-cors response opaque, try to get rowIndex via image trick
-    if(!isUpdate){
-      // store approximate row — refetch not possible with no-cors
-      // we'll use a secondary fetch with cors to get rowIndex
-      try{
-        const res2 = await fetch(SHEETS_URL+"?"+p.toString()+"&getrow=1");
-        const json = await res2.json();
-        if(json.rowIndex) { item.sheetsRow = json.rowIndex; }
-      } catch(e2){ /* ignore */ }
-    }
-    item.synced=true; save(); setSyncDot("ok"); showToast(isUpdate?"✓ Sheets güncellendi":"✓ Sheets'e kaydedildi");
+    await fetch(SHEETS_URL+"?"+p.toString(),{method:"GET",mode:"no-cors"});
+    item.synced=true; save(); setSyncDot("ok");
+    const msg = action==="delete"?"✓ Sheets'ten silindi":action==="update"?"✓ Sheets güncellendi":"✓ Sheets'e kaydedildi";
+    showToast(msg);
   }catch(e){item.synced=false;save();setSyncDot("err");showToast("Sheets'e gönderilemedi",false);}
 }
 
@@ -897,7 +888,7 @@ async function saveNew(){
   await sendToSheets(
     DATA.find(d=>d.id==item.id)||item,
     bl[bl.length-1].balance,
-    isEdit
+    isEdit ? "update" : "add"
   );
   render();
 }
