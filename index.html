@@ -1041,6 +1041,22 @@ async function kullaniciKaydet(){
 
 function applyRol(){
   IS_IZLEYICI = sessionStorage.getItem("kasa_rol") === "izleyici";
+  // Son giriş bilgisini localStorage'a kaydet (yönetici görsün)
+  const rol = sessionStorage.getItem("kasa_rol");
+  const kullanici = sessionStorage.getItem("kasa_kullanici");
+  if(rol && kullanici){
+    const simdi = new Date().toLocaleString("tr-TR");
+    localStorage.setItem("son_giris", JSON.stringify({isim: kullanici, rol: rol, zaman: simdi}));
+  }
+  // Yöneticiyse son girişi göster
+  if(!IS_IZLEYICI){
+    const sg = localStorage.getItem("son_giris");
+    if(sg){
+      const d = JSON.parse(sg);
+      const el = document.getElementById("sonGirisInfo");
+      if(el) el.textContent = "👤 Son: " + d.isim + " (" + (d.rol==="izleyici"?"İzleyici":"Yönetici") + ") - " + d.zaman;
+    }
+  }
   // FAB (+ butonu) gizle
   const fab = document.querySelector(".fab");
   if(fab) fab.style.display = IS_IZLEYICI ? "none" : "";
