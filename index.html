@@ -320,7 +320,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
       <div class="detay-kv"><span class="detay-key">Sheets</span><span class="detay-val" id="detaySync"></span></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="sil-btn" id="detaySilBtn" onclick="showConfirm()" style="flex:1">🗑 Sil</button>
+      <button class="sil-btn" id="detaySilBtn" onclick="if(IS_IZLEYICI)return;showConfirm()" style="flex:1;pointer-events:auto">🗑 Sil</button>
       <button id="detayDuzBtn" onclick="openDuzenle()" style="flex:2;padding:12px;border-radius:10px;background:var(--accent);color:#fff;font-size:13px;font-weight:700;border:none">✏️ Düzenle</button>
     </div>
   </div>
@@ -746,7 +746,7 @@ function render(){
     empty.style.display="none";
     tbl.innerHTML=visible.map(d=>{
       const c=getRenk(d.tur),l=getLabel(d.tur);
-      return `<tr onclick="openDetay(${d.id})">
+      return `<tr onclick="if(!IS_IZLEYICI)openDetay(${d.id})">
         <td class="td-cari">${d.cari||""}</td>
         <td class="td-nakit" style="color:${d.nakit>=0?"var(--gelir)":"var(--gider)"}">${d.nakit>=0?"+":"-"}${fmt(d.nakit)}</td>
         <td class="td-doviz">${d.doviz?(()=>{
