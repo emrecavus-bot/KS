@@ -398,6 +398,11 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
     <div class="handle"></div>
     <button onclick="closeAyarlar()" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:22px;color:#aaa;cursor:pointer;line-height:1">✕</button>
     <div class="sheet-title">⚙️ Ayarlar</div>
+<div style="margin-bottom:16px">
+  <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">👥 Ziyaretçi Geçmişi</div>
+  <div id="girisListesi" style="display:flex;flex-direction:column;gap:8px"></div>
+  <button onclick="girisSil()" style="margin-top:10px;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer">🗑 Geçmişi temizle</button>
+</div>
 
     <div class="ayar-section">
       <div class="ayar-title">A / B / C Kutu Renkleri</div>
@@ -1039,6 +1044,28 @@ async function kullaniciKaydet(){
   applyRol();
 }
 
+
+function renderGirisListesi(){
+  const el = document.getElementById("girisListesi");
+  if(!el) return;
+  const gecmis = JSON.parse(localStorage.getItem("giris_gecmis")||"[]");
+  if(gecmis.length===0){
+    el.innerHTML = "<div style='font-size:12px;color:var(--muted);padding:8px'>Henüz giriş yok</div>";
+    return;
+  }
+  el.innerHTML = gecmis.map(d => {
+    const bg = d.rol==="izleyici" ? "#EBF8FF" : "#F0FFF4";
+    const border = d.rol==="izleyici" ? "#3182CE" : "#38A169";
+    const badgeBg = d.rol==="izleyici" ? "#BEE3F8" : "#C6F6D5";
+    const badgeColor = d.rol==="izleyici" ? "#2B6CB0" : "#276749";
+    const label = d.rol==="izleyici" ? "👁 İzleyici" : "⚙️ Yönetici";
+    return "<div style='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:"+bg+";border-radius:10px;border-left:3px solid "+border+"'><div><div style='font-size:13px;font-weight:700'>"+d.isim+"</div><div style='font-size:11px;color:var(--muted)'>"+d.zaman+"</div></div><span style='font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:"+badgeBg+";color:"+badgeColor+"'>"+label+"</span></div>";
+  }).join("");
+}
+function girisSil(){
+  localStorage.removeItem("giris_gecmis");
+  renderGirisListesi();
+}
 function applyRol(){
   IS_IZLEYICI = sessionStorage.getItem("kasa_rol") === "izleyici";
   // Son giriş bilgisini localStorage'a kaydet (yönetici görsün)
@@ -1046,17 +1073,12 @@ function applyRol(){
   const kullanici = sessionStorage.getItem("kasa_kullanici");
   if(rol && kullanici){
     const simdi = new Date().toLocaleString("tr-TR");
-    localStorage.setItem("son_giris", JSON.stringify({isim: kullanici, rol: rol, zaman: simdi}));
+    let gecmis = JSON.parse(localStorage.getItem("giris_gecmis")||"[]");
+    gecmis.unshift({isim: kullanici, rol: rol, zaman: simdi});
+    if(gecmis.length > 50) gecmis = gecmis.slice(0, 50);
+    localStorage.setItem("giris_gecmis", JSON.stringify(gecmis));
   }
-  // Yöneticiyse son girişi göster
-  if(!IS_IZLEYICI){
-    const sg = localStorage.getItem("son_giris");
-    if(sg){
-      const d = JSON.parse(sg);
-      const el = document.getElementById("sonGirisInfo");
-      if(el) el.textContent = "👤 Son: " + d.isim + " (" + (d.rol==="izleyici"?"İzleyici":"Yönetici") + ") - " + d.zaman;
-    }
-  }
+  if(!IS_IZLEYICI){ renderGirisListesi(); }
   // FAB (+ butonu) gizle
   const fab = document.querySelector(".fab");
   if(fab) fab.style.display = IS_IZLEYICI ? "none" : "";
@@ -1080,7 +1102,8 @@ function applyRol(){
   }
 }
 
-function openAyarlar(){renderAyarlar();document.getElementById("ayarlarOv").classList.add("show");}
+function openAyarlar(){
+  renderGirisListesi();renderAyarlar();document.getElementById("ayarlarOv").classList.add("show");}
 function closeAyarlar(){document.getElementById("ayarlarOv").classList.remove("show");}
 
 function renderAyarlar(){
