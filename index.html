@@ -217,7 +217,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
     </div>
   </div>
   <div class="nav">
-    <button class="nav-btn active" onclick="pane('islemler',this)" id="navIslemler">İşlemler</button>
+    <button class="nav-btn active" onclick="islemlerAc(this)" id="navIslemler">İşlemler</button>
     
     <button class="nav-btn" onclick="pane('ozet',this)">Özet</button>
 <button class="nav-btn" id="navZiyaretci" onclick="pane('ziyaretci',this)" style="display:none">👥</button>
@@ -633,7 +633,7 @@ let FILTRE="hepsi", SEARCH="", SEL_ID=null, SEL_TUR="gider", SEL_G=null, SEL_H=n
 let KULLANICI = sessionStorage.getItem("kasa_kullanici")||"";
 const APP_HASH = "32d590cd616768c2aef358424e6df9e02b6374b21ab0402419f5b449c1c5a801"; // yönetici
 const IZLEYICI_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"; // izleyici
-let IS_IZLEYICI = false;
+let IS_IZLEYICI = sessionStorage.getItem("kasa_rol") === "izleyici";
 let loginAttempts = 0;
 let lockUntil = 0;
 
@@ -666,7 +666,7 @@ async function sendToSheets(item, balance, action){
     const p = new URLSearchParams({
       action: action||"add",
       sayfa: IS_IZLEYICI ? "ziyaretci" : "yonetici",
-      kullanici: KULLANICI||"ziyaretci",
+      kullanici: (KULLANICI||"ziyaretci").toUpperCase(),
       tarih: item.tarih, nakit: item.nakit, tur: item.tur,
       aciklama: item.aciklama, cari: item.cari||"", doviz: item.doviz||"",
       doviz_tip: item.doviz_tip||"", gir_cik: item.gir_cik||"",
@@ -1054,6 +1054,10 @@ async function kullaniciKaydet(){
   sessionStorage.setItem("kasa_rol", IS_IZLEYICI ? "izleyici" : "yonetici");
   document.getElementById("kullaniciOv").classList.remove("show");
   applyRol();
+  // İzleyici ise kendi sayfasını Sheets'te oluştur/aç
+  if(IS_IZLEYICI){
+    fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretci&kullanici="+val.toUpperCase(),{mode:"no-cors"}).catch(()=>{});
+  }
 }
 
 
@@ -1078,6 +1082,22 @@ function girisSil(){
   localStorage.removeItem("giris_gecmis");
   renderGirisListesi();
 }
+async function islemlerAc(btn){
+  if(!IS_IZLEYICI){
+    pane('islemler', btn);
+    return;
+  }
+  // İzleyici için şifre sor
+  const sifre = prompt("🔐 İşlemler için şifre girin:");
+  if(!sifre) return;
+  const hash = await hashSifre(sifre);
+  if(hash === APP_HASH){
+    pane('islemler', btn);
+  } else {
+    showToast("❌ Yanlış şifre!", false);
+  }
+}
+
 function applyRol(){
   IS_IZLEYICI = sessionStorage.getItem("kasa_rol") === "izleyici";
   // Son giriş bilgisini localStorage'a kaydet (yönetici görsün)
@@ -1119,6 +1139,14 @@ function applyRol(){
       "<div><div style='font-weight:700;font-size:13px'>"+(g.rol==="izleyici"?"👁 İzleyici":"⚙️ Yönetici")+" · "+g.isim+"</div>"+
       "<div style='font-size:11px;color:#718096;margin-top:2px'>"+g.zaman+"</div></div></div>"
     ).join("") : "<div style='color:#718096;font-size:13px;text-align:center;padding:20px'>Henüz kayıt yok</div>";
+  }
+
+  // İzleyici girince İşlemler kapalı, Özet açık başlasın
+  if(IS_IZLEYICI){
+    document.querySelectorAll(".pane").forEach(p=>p.classList.remove("active"));
+    document.getElementById("pane-ozet").classList.add("active");
+    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+    document.getElementById("navIslemler").classList.remove("active");
   }
 
   if(IS_IZLEYICI && brand && !existing){
@@ -1250,7 +1278,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 async function loadFromSheets(){
   setSyncDot("loading");
   try{
-    const res = await fetch(SHEETS_URL+"?action=getAll&sayfa="+(IS_IZLEYICI?"ziyaretci":"yonetici")+"&kullanici="+(KULLANICI||"ziyaretci"));
+    const res = await fetch(SHEETS_URL+"?action=getAll&sayfa="+(IS_IZLEYICI?"ziyaretci":"yonetici")+"&kullanici="+(KULLANICI||"ziyaretci").toUpperCase());
     const rows = await res.json();
     if(!Array.isArray(rows) || rows.length===0){ render(); setSyncDot("ok"); return; }
     DATA = rows.map((r,i)=>({
