@@ -41,10 +41,10 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 .settings-btn{background:none;font-size:18px;color:var(--muted);padding:4px;border:none}
 
-.balance-block{display:none}
-.balance-label{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
-.balance-amount{font-family:'Space Mono',monospace;font-size:32px;font-weight:700;color:var(--text)}
-.balance-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.balance-block{display:flex;flex-direction:column;gap:4px;margin:6px 0 14px;padding:14px 16px;border:1px solid #D6E9C6;border-radius:18px;background:linear-gradient(180deg,#F7FFF7 0%,#EDFDF2 100%);box-shadow:0 8px 24px rgba(56,161,105,.08);max-width:320px}
+.balance-label{font-size:11px;color:#5A6B7B;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;font-weight:700}
+.balance-amount{font-family:'Space Mono',monospace;font-size:30px;font-weight:700;color:var(--gelir);line-height:1.15}
+.balance-sub{font-size:12px;color:var(--muted);margin-top:2px}
 
 .stats-row{display:none}
 .stat-item{flex:1;padding:10px 0;display:flex;flex-direction:column;gap:3px;border-right:1px solid var(--border)}
@@ -177,12 +177,12 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
         <div class="sync-dot" id="syncDot"></div>
         <span id="syncText">Hazır</span>
       </div>
-      <button class="settings-btn" id="girisLogBtn" onclick="openRecentVisitors()" style="display:none">👥</button>
-<button class="settings-btn" id="ayarBtn" onclick="openAyarlar()">⚙️</button>
+      <button class="settings-btn" id="girisLogBtn" onclick="openGirisLog()" style="display:none">👥</button>
+<button class="settings-btn" onclick="openAyarlar()">⚙️</button>
     </div>
   </div>
   <div class="balance-block">
-    <div class="balance-label">Güncel Bakiye</div>
+    <div class="balance-label">Bakiye</div>
     <div class="balance-amount" id="balanceAmt">₺0</div>
     <div class="balance-sub" id="balanceSub"></div>
   </div>
@@ -688,13 +688,14 @@ function buildDropdown(){
 
 function render(){
   const bl=withBalance();
-  const last=bl.length?bl[bl.length-1].balance:0;
-  const income=DATA.filter(d=>d.nakit>0&&d.tur!=="devir").reduce((s,d)=>s+d.nakit,0);
+  const sonKayit = DATA.length ? DATA[DATA.length-1] : null;
+  const sonBakiye = sonKayit && sonKayit.bakiye != null && sonKayit.bakiye !== "" ? parseFloat(sonKayit.bakiye)||0 : (bl.length?bl[bl.length-1].balance:0);
+  const income=DATA.filter(d=>d.nakit>0&&d.tur&&d.tur!=="devir").reduce((s,d)=>s+d.nakit,0);
   const expense=DATA.filter(d=>d.nakit<0).reduce((s,d)=>s+Math.abs(d.nakit),0);
   const dovizTotal=Math.abs(DATA.filter(d=>d.doviz_tip==="dolar").reduce((s,d)=>s+(d.doviz||0),0));
 
-  document.getElementById("balanceAmt").textContent=fmtB(last);
-  document.getElementById("balanceSub").textContent=dovizTotal>0?`${dovizTotal.toLocaleString("tr-TR")} $ döviz pozisyonu`:"";
+  document.getElementById("balanceAmt").textContent=fmtB(sonBakiye);
+  document.getElementById("balanceSub").textContent=sonKayit ? `Sheets J sütunu • ${sonKayit.tarih||""}` : (dovizTotal>0?`${dovizTotal.toLocaleString("tr-TR")} $ döviz pozisyonu`:"Sheets J sütunundan okunuyor");
   document.getElementById("statGelir").textContent=fmt(income);
   document.getElementById("statGider").textContent=fmt(expense);
   document.getElementById("statCount").textContent=DATA.length;
@@ -729,7 +730,7 @@ function render(){
         <td class="td-tarih">${d.tarih}</td>
         <td style="white-space:nowrap"><span style="font-size:10px;font-weight:700;color:${c}">${l}</span></td>
         <td style="white-space:nowrap"><span style="font-size:11px;color:#4A5568;font-weight:600">${d.gir_cik||""}</span></td>
-        <td class="td-bakiye">${fmtB(d.balance)}</td>
+        <td class="td-bakiye">${fmtB(d.bakiye || 0)}</td>
       </tr>`;
     }).join("");
   }
@@ -801,7 +802,7 @@ function openDetay(id){
   document.getElementById("detayAmt").textContent=(d.nakit>=0?"+":"")+fmt(d.nakit);
   document.getElementById("detayAmt").style.color=d.nakit>=0?"var(--gelir)":"var(--gider)";
   document.getElementById("detayDate").textContent=d.tarih;
-  document.getElementById("detayBal").textContent=fmt(d.balance);
+  document.getElementById("detayBal").textContent=fmtB(d.bakiye || 0);
   const dc=document.getElementById("detayCariRow");
   if(d.cari){dc.style.display="flex";document.getElementById("detayCari").textContent=d.cari;}else dc.style.display="none";
   const dr=document.getElementById("detayDovizRow");
@@ -988,45 +989,13 @@ async function kullaniciKaydet(){
     if(IS_IZLEYICI){
       await fetch(SHEETS_URL+"?action=createUser&sayfa=ziyaretci&kullanici="+encodeURIComponent(KULLANICI));
       await loadZiyaretciData();
-    }else{
+    } else {
       await loadFromSheets();
     }
   }catch(e){
     console.log(e);
-    showToast("Veriler yüklenemedi", false);
+    showToast("Veriler yüklenemedi",false);
   }
-}
-
-async function openRecentVisitors(){
-  const ov = document.getElementById("recentOv");
-  const el = document.getElementById("recentList");
-  if(!ov || !el) return;
-  ov.classList.add("show");
-  el.innerHTML = "<div style='text-align:center;padding:20px;color:#718096'>Yükleniyor...</div>";
-  try{
-    const res = await fetch(SHEETS_URL+"?action=recentVisitors");
-    const rows = await res.json();
-    if(!Array.isArray(rows) || rows.length===0){
-      el.innerHTML = "<div style='text-align:center;padding:24px;color:#718096'>Son 1 haftada kayıt yok</div>";
-      return;
-    }
-    el.innerHTML = rows.map(r => `
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #E2E8F0">
-        <div>
-          <div style="font-weight:800;font-size:13px">👤 ${r.isim || "-"}</div>
-          <div style="font-size:12px;color:#4A5568;margin-top:3px">${r.aciklama || r.cari || "-"}</div>
-        </div>
-        <div style="font-size:11px;color:#718096;white-space:nowrap">${r.tarih || ""}</div>
-      </div>
-    `).join("");
-  }catch(e){
-    el.innerHTML = "<div style='text-align:center;padding:24px;color:#E53E3E'>Liste alınamadı</div>";
-  }
-}
-
-function closeRecentVisitors(){
-  const ov = document.getElementById("recentOv");
-  if(ov) ov.classList.remove("show");
 }
 
 function openGirisLog(){
@@ -1177,7 +1146,7 @@ function applyRol(){
   const navZiy = document.getElementById("navZiyaretci");
   const navIslemler = document.getElementById("navIslemler");
   const fab = document.querySelector(".fab");
-  const ayarBtn = document.getElementById("ayarBtn");
+  const ayarBtn = document.querySelector(".settings-btn");
 
   if(IS_IZLEYICI){
     // Özet gizle
@@ -1189,10 +1158,8 @@ function applyRol(){
       const baslik = document.getElementById("ziyBaslik");
       if(baslik && !IS_IZLEYICI) baslik.textContent = "👥 Ziyaretçi - İsim yazarak ara";
     }, 100);
-    // Butonları gizle
+    // Ayarlar gizle
     if(ayarBtn) ayarBtn.style.display = "none";
-    const girisBtn = document.getElementById("girisLogBtn");
-    if(girisBtn) girisBtn.style.display = "none";
     // Kayıtlarım sekmesini aktif yap
     document.querySelectorAll(".pane").forEach(p=>p.classList.remove("active"));
     const ziyPane = document.getElementById("pane-ziyaretci");
@@ -1235,28 +1202,28 @@ function applyRol(){
 async function loadZiyaretciData(){
   try {
     setSyncDot("loading");
-    const res = await fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretci&kullanici="+encodeURIComponent((KULLANICI||"ZIYARETCI").toUpperCase()));
+    const res = await fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretci&kullanici="+encodeURIComponent((KULLANICI||"ziyaretci").toUpperCase()));
     const rows = await res.json();
     setSyncDot("ok");
     if(!Array.isArray(rows)) return;
-    const mapped = rows.map((r,i)=>({
-      id: r.id || Date.now()+i,
+    const normalized = rows.map((r,i)=>({
+      id: "ziy_" + Date.now() + "_" + i,
       tarih: r.tarih || "",
       nakit: parseFloat(r.nakit)||0,
       cari: r.cari||"",
       doviz: r.doviz ? parseFloat(r.doviz) : null,
       doviz_tip: r.doviz_tip||"",
       gir_cik: r.gir_cik||"",
-      tur: r.tur||"gider",
+      tur: r.tur||"",
       aciklama: r.aciklama||"",
-      balance: parseFloat(r.bakiye)||0,
+      bakiye: parseFloat(r.bakiye)||0,
       synced: true
     }));
-    DATA = mapped;
-    ZIY_DATA = mapped;
-    save();
-    renderZiyaretciTablo(mapped);
-    showToast("✓ " + mapped.length + " kayıt yüklendi");
+    DATA = normalized;
+    ZIY_DATA = normalized;
+    render();
+    renderZiyaretciTablo(normalized);
+    showToast("✓ " + normalized.length + " kayıt yüklendi");
   } catch(e){
     setSyncDot("err");
     console.log(e);
@@ -1288,8 +1255,7 @@ function renderZiyaretciTablo(rows){
     return;
   }
   
-  const bl = rows.map((d,i)=>({ ...d, balance: (d.balance!=null && d.balance!=="") ? Number(d.balance) : rows.slice(0,i+1).reduce((s,x)=>s+(parseFloat(x.nakit)||0),0) }));
-  tbody.innerHTML = bl.map((d) => {
+  tbody.innerHTML = rows.map((d) => {
     const turLabel = getLabel(d.tur||'');
     const turColor = getRenk(d.tur||'');
     const dovizIcon = (()=>{const t=(d.doviz_tip||'').toLowerCase();if(t.includes('dolar'))return'💵';if(t.includes('euro'))return'💶';if(t.includes('sterlin'))return'💷';if(t)return'💳';return'';})();
@@ -1301,7 +1267,7 @@ function renderZiyaretciTablo(rows){
       <td>${d.aciklama||""}</td>
       <td style="color:var(--muted);font-size:11px">${(d.tarih||'').replace(/-/g,'.')}</td>
       <td><span style="color:${turColor};font-weight:700;font-size:11px">${turLabel}</span></td>
-      <td style="text-align:right;font-family:'Space Mono',monospace;font-size:11px">${fmtB(d.balance)}</td>
+      <td style="text-align:right;font-family:'Space Mono',monospace;font-size:11px">${fmtB(d.bakiye || 0)}</td>
     </tr>`;
   }).join("");
 }
@@ -1328,20 +1294,8 @@ async function araZiyaretci(q){
       const rows = await res.json();
       setSyncDot("ok");
       if(Array.isArray(rows)){
-        ZIY_DATA = rows.map((r,i)=>({
-          id: r.id || Date.now()+i,
-          tarih: r.tarih || "",
-          nakit: parseFloat(r.nakit)||0,
-          cari: r.cari||"",
-          doviz: r.doviz ? parseFloat(r.doviz) : null,
-          doviz_tip: r.doviz_tip||"",
-          gir_cik: r.gir_cik||"",
-          tur: r.tur||"gider",
-          aciklama: r.aciklama||"",
-          balance: parseFloat(r.bakiye)||0,
-          synced: true
-        }));
-        renderZiyaretciTablo(ZIY_DATA);
+        ZIY_DATA = rows; // DATA'yı ezme!
+        renderZiyaretciTablo(rows);
       } else {
         ZIY_DATA = [];
         renderZiyaretciTablo([]);
@@ -1389,8 +1343,11 @@ document.addEventListener("DOMContentLoaded",()=>{
   applyRenkler();
   if(!KULLANICI){
     document.getElementById("kullaniciOv").classList.add("show");
+    render();
+    return;
   }
-  if(KULLANICI) loadFromSheets();
+  if(IS_IZLEYICI) loadZiyaretciData();
+  else loadFromSheets();
 });
 
 async function loadFromSheets(){
@@ -1401,14 +1358,15 @@ async function loadFromSheets(){
     if(!Array.isArray(rows) || rows.length===0){ render(); setSyncDot("ok"); return; }
     DATA = rows.map((r,i)=>({
       id: Date.now()+i,
-      tarih: r.tarih,
-      nakit: r.nakit,
+      tarih: r.tarih || "",
+      nakit: parseFloat(r.nakit)||0,
       cari: r.cari||null,
       doviz: r.doviz?parseFloat(r.doviz):null,
       doviz_tip: r.doviz_tip||null,
       gir_cik: r.gir_cik||null,
-      tur: r.tur||"gider",
+      tur: r.tur||"",
       aciklama: r.aciklama||"",
+      bakiye: parseFloat(r.bakiye)||0,
       synced: true
     }));
     save();
@@ -1422,16 +1380,5 @@ async function loadFromSheets(){
   }
 }
 </script>
-
-<div class="overlay center" id="recentOv" onclick="if(event.target===this)closeRecentVisitors()">
-  <div class="onay-box" style="max-width:420px;text-align:left;max-height:80vh;overflow:auto">
-    <div class="onay-title" style="margin-bottom:12px">👥 Son 1 Haftalık Ziyaretçiler</div>
-    <div id="recentList"></div>
-    <div style="margin-top:14px">
-      <button class="btn-cancel" style="width:100%" onclick="closeRecentVisitors()">Kapat</button>
-    </div>
-  </div>
-</div>
-
 </body>
 </html>
