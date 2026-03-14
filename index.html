@@ -975,18 +975,35 @@ async function kullaniciKaydet(){
     document.getElementById("sifreInput").value="";
     return;
   }
+
   loginAttempts = 0;
   document.getElementById("sifreHata").style.display="none";
-  KULLANICI = val;
+
+  KULLANICI = val.toUpperCase();
   IS_IZLEYICI = (hash === IZLEYICI_HASH);
-  sessionStorage.setItem("kasa_kullanici", val);
+
+  sessionStorage.setItem("kasa_kullanici", KULLANICI);
   sessionStorage.setItem("kasa_rol", IS_IZLEYICI ? "izleyici" : "yonetici");
-  // Yönetici girince işlemler otomatik açık
-  if(!IS_IZLEYICI) sessionStorage.setItem("islemler_acik", "1");
+
+  if(!IS_IZLEYICI){
+    sessionStorage.setItem("islemler_acik", "1");
+  }
+
   document.getElementById("kullaniciOv").classList.remove("show");
   applyRol();
-  if(IS_IZLEYICI){
-    fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretci&kullanici="+val.toUpperCase(),{mode:"no-cors"}).catch(()=>{});
+
+  try{
+    if(IS_IZLEYICI){
+      await fetch(
+        SHEETS_URL + "?action=createUser&sayfa=ziyaretci&kullanici=" + encodeURIComponent(KULLANICI)
+      );
+      await loadZiyaretciData();
+    } else {
+      await loadFromSheets();
+    }
+  } catch(e){
+    console.log(e);
+    showToast("Veriler yüklenemedi", false);
   }
 }
 
@@ -1191,16 +1208,46 @@ function applyRol(){
     }, 500);
   }
 }
+function normalizeSheetRows(rows){
+  if(!Array.isArray(rows)) return [];
+  let running = 0;
+  return rows.map((r,i)=>{
+    const nakit = Number(r.nakit || 0);
+    const rowBalance = (r.balance != null) ? Number(r.balance) : (r.bakiye != null ? Number(r.bakiye) : null);
+    running += nakit;
+    return {
+      id: r.id || (Date.now() + i),
+      tarih: r.tarih || "",
+      nakit: nakit,
+      cari: r.cari != null ? String(r.cari) : "",
+      doviz: (r.doviz === "" || r.doviz == null) ? null : Number(r.doviz),
+      doviz_tip: r.doviz_tip || "",
+      gir_cik: r.gir_cik || "",
+      tur: r.tur || "",
+      aciklama: r.aciklama || "",
+      balance: rowBalance != null && !isNaN(rowBalance) ? rowBalance : running,
+      synced: true
+    };
+  });
+}
+
 async function loadZiyaretciData(){
   try {
     setSyncDot("loading");
-    const res = await fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretci&kullanici="+(KULLANICI||"ziyaretci").toUpperCase());
+    const res = await fetch(
+      SHEETS_URL + "?action=getAll&sayfa=ziyaretci&kullanici=" + encodeURIComponent((KULLANICI || "ziyaretci").toUpperCase())
+    );
     const rows = await res.json();
     setSyncDot("ok");
+
     if(!Array.isArray(rows)) return;
-    DATA = rows;
-    renderZiyaretciTablo(rows);
-    showToast("✓ " + rows.length + " kayıt yüklendi");
+
+    const normalized = normalizeSheetRows(rows);
+    DATA = normalized;
+    ZIY_DATA = normalized;
+    save();
+    renderZiyaretciTablo(normalized);
+    showToast("✓ " + normalized.length + " kayıt yüklendi");
   } catch(e){
     setSyncDot("err");
     console.log(e);
@@ -1215,7 +1262,7 @@ function renderZiyaretciTablo(rows){
   if(!thead || !tbody) return;
   if(bosMsg) bosMsg.style.display = "none";
   if(tabloEl) tabloEl.style.display = "";
-  
+
   thead.innerHTML = `<tr>
     <th style="color:#B7791F;font-weight:800">CARİ</th>
     <th>NAKİT</th>
@@ -1226,14 +1273,14 @@ function renderZiyaretciTablo(rows){
     <th>G TÜRÜ</th>
     <th>BAKİYE</th>
   </tr>`;
-  
+
   if(rows.length === 0){
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#718096">Henüz kayıt yok.<br>+ butonuyla ekleyebilirsin.</td></tr>`;
     return;
   }
-  
-  const bl = withBalance();
-  tbody.innerHTML = bl.map((d) => {
+
+  const list = normalizeSheetRows(rows);
+  tbody.innerHTML = list.map((d) => {
     const turLabel = getLabel(d.tur||'');
     const turColor = getRenk(d.tur||'');
     const dovizIcon = (()=>{const t=(d.doviz_tip||'').toLowerCase();if(t.includes('dolar'))return'💵';if(t.includes('euro'))return'💶';if(t.includes('sterlin'))return'💷';if(t)return'💳';return'';})();
@@ -1245,7 +1292,7 @@ function renderZiyaretciTablo(rows){
       <td>${d.aciklama||""}</td>
       <td style="color:var(--muted);font-size:11px">${(d.tarih||'').replace(/-/g,'.')}</td>
       <td><span style="color:${turColor};font-weight:700;font-size:11px">${turLabel}</span></td>
-      <td style="text-align:right;font-family:'Space Mono',monospace;font-size:11px">${fmtB(d.balance)}</td>
+      <td style="text-align:right;font-family:'Space Mono',monospace;font-size:11px">${fmtB(d.balance||0)}</td>
     </tr>`;
   }).join("");
 }
@@ -1268,12 +1315,12 @@ async function araZiyaretci(q){
     if(baslik) baslik.textContent = "👤 " + q.toUpperCase() + " Kayıtları";
     try {
       setSyncDot("loading");
-      const res = await fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretciler&kullanici="+q.trim().toUpperCase());
+      const res = await fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretciler&kullanici="+encodeURIComponent(q.trim().toUpperCase()));
       const rows = await res.json();
       setSyncDot("ok");
       if(Array.isArray(rows)){
-        ZIY_DATA = rows; // DATA'yı ezme!
-        renderZiyaretciTablo(rows);
+        ZIY_DATA = normalizeSheetRows(rows); // DATA'yı ezme!
+        renderZiyaretciTablo(ZIY_DATA);
       } else {
         ZIY_DATA = [];
         renderZiyaretciTablo([]);
@@ -1316,13 +1363,18 @@ async function islemlerAc(btn){
 }
 
 
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded", async ()=>{
   applyRol();
   applyRenkler();
   if(!KULLANICI){
     document.getElementById("kullaniciOv").classList.add("show");
+    return;
   }
-  loadFromSheets();
+  if(IS_IZLEYICI){
+    await loadZiyaretciData();
+  } else {
+    await loadFromSheets();
+  }
 });
 
 async function loadFromSheets(){
