@@ -220,6 +220,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
     <button class="nav-btn active" onclick="pane('islemler',this)" id="navIslemler">İşlemler</button>
     
     <button class="nav-btn" onclick="pane('ozet',this)">Özet</button>
+<button class="nav-btn" id="navZiyaretci" onclick="pane('ziyaretci',this)" style="display:none">👥</button>
   </div>
 </div>
 
@@ -280,6 +281,12 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
   <div id="dovizCards"></div>
 </div>
 
+<div class="pane" id="pane-ziyaretci">
+  <div class="section">
+    <div class="sec-title">👥 Son 1 Haftalık Girişler</div>
+    <div id="ziyaretciGecmisList" style="margin-top:8px"></div>
+  </div>
+</div>
 <div class="pane" id="pane-ozet">
   <div class="section">
     <div class="sec-title">Türe Göre Dağılım</div>
@@ -320,7 +327,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
       <div class="detay-kv"><span class="detay-key">Sheets</span><span class="detay-val" id="detaySync"></span></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="sil-btn" id="detaySilBtn" onclick="if(IS_IZLEYICI)return;showConfirm()" style="flex:1;pointer-events:auto">🗑 Sil</button>
+      <button class="sil-btn" id="detaySilBtn" onclick="showConfirm()" style="flex:1;pointer-events:auto">🗑 Sil</button>
       <button id="detayDuzBtn" onclick="openDuzenle()" style="flex:2;padding:12px;border-radius:10px;background:var(--accent);color:#fff;font-size:13px;font-weight:700;border:none">✏️ Düzenle</button>
     </div>
   </div>
@@ -658,6 +665,8 @@ async function sendToSheets(item, balance, action){
     const saat = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
     const p = new URLSearchParams({
       action: action||"add",
+      sayfa: IS_IZLEYICI ? "ziyaretci" : "yonetici",
+      kullanici: KULLANICI||"ziyaretci",
       tarih: item.tarih, nakit: item.nakit, tur: item.tur,
       aciklama: item.aciklama, cari: item.cari||"", doviz: item.doviz||"",
       doviz_tip: item.doviz_tip||"", gir_cik: item.gir_cik||"",
@@ -865,7 +874,7 @@ function openDetay(id){
 }
 function closeDetay(){document.getElementById("detayOv").classList.remove("show");SEL_ID=null;}
 function showConfirm(){
-  if(IS_IZLEYICI){ showToast("❌ İzleyici silemez!", false); return; }
+  
   window.PENDING_DELETE = DATA.find(d=>d.id===SEL_ID);
   document.getElementById("detayOv").classList.remove("show");
   document.getElementById("confirmOv").classList.add("show");
@@ -929,7 +938,7 @@ function renderGH(){
   }
 }
 function openNew(){
-  if(IS_IZLEYICI){ showToast("❌ İzleyici ekleyemez!", false); return; }
+  
   document.getElementById("fTarih").value=new Date().toISOString().split("T")[0];
   ["fTutar","fAciklama","fCari","fDoviz","fGManuel","fGirCikManuel"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   document.getElementById("fDovizTip").value="";
@@ -949,7 +958,7 @@ function closeNew(){
 }
 
 function openDuzenle(){
-  if(IS_IZLEYICI){ showToast("❌ İzleyici düzenleyemez!", false); return; }
+  
   const d = DATA.find(x=>x.id===SEL_ID);
   if(!d) return;
   const editId = SEL_ID;
@@ -1084,18 +1093,34 @@ function applyRol(){
   if(!IS_IZLEYICI){ renderGirisListesi(); }
   // FAB (+ butonu) gizle
   const fab = document.querySelector(".fab");
-  if(fab) fab.style.display = IS_IZLEYICI ? "none" : "";
+  // İzleyici kendi sayfasında ekleyebilir
+  if(fab) fab.style.display = ""; // Her zaman göster, kontrol openNew'de
   // Ayarlar butonu gizle
   const ayarBtn = document.querySelector(".settings-btn");
-  if(ayarBtn) ayarBtn.style.display = IS_IZLEYICI ? "none" : "";
+  if(ayarBtn) ayarBtn.style.display = ""; // Herkes görsün
   // Detay sayfasında sil/düzenle butonları
   const silBtn = document.getElementById("detaySilBtn");
   const duzBtn = document.getElementById("detayDuzBtn");
-  if(silBtn) silBtn.style.display = IS_IZLEYICI ? "none" : "";
-  if(duzBtn) duzBtn.style.display = IS_IZLEYICI ? "none" : "";
+  if(silBtn) silBtn.style.display = ""; // Herkes görsün
+  if(duzBtn) duzBtn.style.display = ""; // Herkes görsün
   // İzleyici rozeti
   const brand = document.querySelector(".brand");
   const existing = document.getElementById("izleyici-badge");
+  // Ziyaretçi nav butonunu sadece yöneticiye göster
+  const navZiy = document.getElementById("navZiyaretci");
+  if(navZiy) navZiy.style.display = IS_IZLEYICI ? "none" : "";
+  
+  // Ziyaretçi geçmişini doldur
+  const gecmisEl = document.getElementById("ziyaretciGecmisList");
+  if(gecmisEl && !IS_IZLEYICI){
+    const gecmis = JSON.parse(localStorage.getItem("giris_gecmis")||"[]");
+    gecmisEl.innerHTML = gecmis.length ? gecmis.map(g=>
+      "<div style='display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#fff;border-radius:10px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)'>"+
+      "<div><div style='font-weight:700;font-size:13px'>"+(g.rol==="izleyici"?"👁 İzleyici":"⚙️ Yönetici")+" · "+g.isim+"</div>"+
+      "<div style='font-size:11px;color:#718096;margin-top:2px'>"+g.zaman+"</div></div></div>"
+    ).join("") : "<div style='color:#718096;font-size:13px;text-align:center;padding:20px'>Henüz kayıt yok</div>";
+  }
+
   if(IS_IZLEYICI && brand && !existing){
     const badge = document.createElement("span");
     badge.id = "izleyici-badge";
@@ -1225,7 +1250,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 async function loadFromSheets(){
   setSyncDot("loading");
   try{
-    const res = await fetch(SHEETS_URL+"?action=getAll&sayfa="+(IS_IZLEYICI?"ziyaretci":"yonetici"));
+    const res = await fetch(SHEETS_URL+"?action=getAll&sayfa="+(IS_IZLEYICI?"ziyaretci":"yonetici")+"&kullanici="+(KULLANICI||"ziyaretci"));
     const rows = await res.json();
     if(!Array.isArray(rows) || rows.length===0){ render(); setSyncDot("ok"); return; }
     DATA = rows.map((r,i)=>({
