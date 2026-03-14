@@ -595,15 +595,17 @@ let DATA = load() || [];
 
 let FILTRE="hepsi", SEARCH="", SEL_ID=null, SEL_TUR="gider", SEL_G=null, SEL_H=null, EDITING_ID=null;
 let KULLANICI = sessionStorage.getItem("kasa_kullanici")||"";
-const APP_HASH = "32d590cd616768c2aef358424e6df9e02b6374b21ab0402419f5b449c1c5a801"; // rk1234
-const IZLEYICI_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"; // 1234
 let IS_IZLEYICI = sessionStorage.getItem("kasa_rol") === "izleyici";
 let loginAttempts = 0;
 let lockUntil = 0;
 
-async function hashSifre(s){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+async function backendLogin(kullanici, sifre){
+  const res = await fetch(
+    SHEETS_URL+
+    "?action=login&kullanici="+encodeURIComponent(kullanici)+
+    "&sifre="+encodeURIComponent(sifre)
+  );
+  return await res.json();
 }
 const fmt = n=>"₺"+new Intl.NumberFormat("tr-TR").format(Math.abs(n));
 const fmtB = n=>(n<0?"-":"")+"₺"+new Intl.NumberFormat("tr-TR").format(Math.abs(n));
@@ -959,51 +961,71 @@ async function saveNew(){
 async function kullaniciKaydet(){
   const val = document.getElementById("kullaniciInput").value.trim();
   const sifre = document.getElementById("sifreInput").value;
-  if(!val){ showToast("Lütfen adınızı girin",false); return; }
+
+  if(!val){
+    showToast("Lütfen adınızı girin", false);
+    return;
+  }
+
   if(Date.now() < lockUntil){
     const kalan = Math.ceil((lockUntil - Date.now()) / 1000);
     document.getElementById("sifreHata").textContent = "⏳ " + kalan + " saniye bekleyin!";
-    document.getElementById("sifreHata").style.display="block";
+    document.getElementById("sifreHata").style.display = "block";
     return;
   }
-  const hash = await hashSifre(sifre);
-  if(hash !== APP_HASH && hash !== IZLEYICI_HASH){
-    loginAttempts++;
-    if(loginAttempts >= 3){ lockUntil = Date.now() + 60000; loginAttempts = 0; document.getElementById("sifreHata").textContent = "🔒 3 yanlış! 60 saniye kilitlendi."; }
-    else { document.getElementById("sifreHata").textContent = "❌ Şifre yanlış! (" + loginAttempts + "/3)"; }
-    document.getElementById("sifreHata").style.display="block";
-    document.getElementById("sifreInput").value="";
-    return;
-  }
-
-  loginAttempts = 0;
-  document.getElementById("sifreHata").style.display="none";
-
-  KULLANICI = val.toUpperCase();
-  IS_IZLEYICI = (hash === IZLEYICI_HASH);
-
-  sessionStorage.setItem("kasa_kullanici", KULLANICI);
-  sessionStorage.setItem("kasa_rol", IS_IZLEYICI ? "izleyici" : "yonetici");
-
-  if(!IS_IZLEYICI){
-    sessionStorage.setItem("islemler_acik", "1");
-  }
-
-  document.getElementById("kullaniciOv").classList.remove("show");
-  applyRol();
 
   try{
-    if(IS_IZLEYICI){
-      await fetch(
-        SHEETS_URL + "?action=createUser&sayfa=ziyaretci&kullanici=" + encodeURIComponent(KULLANICI)
-      );
-      await loadZiyaretciData();
-    } else {
-      await loadFromSheets();
+    const sonuc = await backendLogin(val, sifre);
+
+    if(sonuc.status !== "ok"){
+      loginAttempts++;
+      if(loginAttempts >= 3){
+        lockUntil = Date.now() + 60000;
+        loginAttempts = 0;
+        document.getElementById("sifreHata").textContent = "🔒 3 yanlış! 60 saniye kilitlendi.";
+      } else {
+        document.getElementById("sifreHata").textContent = "❌ Şifre yanlış! (" + loginAttempts + "/3)";
+      }
+      document.getElementById("sifreHata").style.display = "block";
+      document.getElementById("sifreInput").value = "";
+      return;
+    }
+
+    loginAttempts = 0;
+    document.getElementById("sifreHata").style.display = "none";
+
+    KULLANICI = (sonuc.kullanici || val).toUpperCase();
+    IS_IZLEYICI = sonuc.rol === "izleyici";
+
+    sessionStorage.setItem("kasa_kullanici", KULLANICI);
+    sessionStorage.setItem("kasa_rol", IS_IZLEYICI ? "izleyici" : "yonetici");
+
+    if(!IS_IZLEYICI){
+      sessionStorage.setItem("islemler_acik", "1");
+    }
+
+    document.getElementById("kullaniciOv").classList.remove("show");
+    document.getElementById("sifreInput").value = "";
+    applyRol();
+
+    try{
+      if(IS_IZLEYICI){
+        await fetch(
+          SHEETS_URL +
+          "?action=createUser&sayfa=ziyaretci&kullanici=" +
+          encodeURIComponent(KULLANICI)
+        );
+        await loadZiyaretciData();
+      } else {
+        await loadFromSheets();
+      }
+    } catch(e){
+      console.log(e);
+      showToast("Veriler yüklenemedi", false);
     }
   } catch(e){
     console.log(e);
-    showToast("Veriler yüklenemedi", false);
+    showToast("Giriş sırasında hata oluştu", false);
   }
 }
 
@@ -1208,29 +1230,6 @@ function applyRol(){
     }, 500);
   }
 }
-function normalizeSheetRows(rows){
-  if(!Array.isArray(rows)) return [];
-  let running = 0;
-  return rows.map((r,i)=>{
-    const nakit = Number(r.nakit || 0);
-    const rowBalance = (r.balance != null) ? Number(r.balance) : (r.bakiye != null ? Number(r.bakiye) : null);
-    running += nakit;
-    return {
-      id: r.id || (Date.now() + i),
-      tarih: r.tarih || "",
-      nakit: nakit,
-      cari: r.cari != null ? String(r.cari) : "",
-      doviz: (r.doviz === "" || r.doviz == null) ? null : Number(r.doviz),
-      doviz_tip: r.doviz_tip || "",
-      gir_cik: r.gir_cik || "",
-      tur: r.tur || "",
-      aciklama: r.aciklama || "",
-      balance: rowBalance != null && !isNaN(rowBalance) ? rowBalance : running,
-      synced: true
-    };
-  });
-}
-
 async function loadZiyaretciData(){
   try {
     setSyncDot("loading");
@@ -1242,7 +1241,23 @@ async function loadZiyaretciData(){
 
     if(!Array.isArray(rows)) return;
 
-    const normalized = normalizeSheetRows(rows);
+    const normalized = rows.map((r,i)=>(
+      {
+        id: r.id || (Date.now()+i),
+        tarih: r.tarih || "",
+        nakit: Number(r.nakit)||0,
+        cari: r.cari||"",
+        doviz: r.doviz ? Number(r.doviz) : null,
+        doviz_tip: r.doviz_tip||"",
+        gir_cik: r.gir_cik||"",
+        tur: r.tur||"gider",
+        aciklama: r.aciklama||"",
+        balance: Number(r.bakiye)||0,
+        synced: true,
+        kullanici: KULLANICI
+      }
+    ));
+
     DATA = normalized;
     ZIY_DATA = normalized;
     save();
@@ -1262,7 +1277,7 @@ function renderZiyaretciTablo(rows){
   if(!thead || !tbody) return;
   if(bosMsg) bosMsg.style.display = "none";
   if(tabloEl) tabloEl.style.display = "";
-
+  
   thead.innerHTML = `<tr>
     <th style="color:#B7791F;font-weight:800">CARİ</th>
     <th>NAKİT</th>
@@ -1273,14 +1288,14 @@ function renderZiyaretciTablo(rows){
     <th>G TÜRÜ</th>
     <th>BAKİYE</th>
   </tr>`;
-
+  
   if(rows.length === 0){
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#718096">Henüz kayıt yok.<br>+ butonuyla ekleyebilirsin.</td></tr>`;
     return;
   }
-
-  const list = normalizeSheetRows(rows);
-  tbody.innerHTML = list.map((d) => {
+  
+  const bl = withBalance();
+  tbody.innerHTML = bl.map((d) => {
     const turLabel = getLabel(d.tur||'');
     const turColor = getRenk(d.tur||'');
     const dovizIcon = (()=>{const t=(d.doviz_tip||'').toLowerCase();if(t.includes('dolar'))return'💵';if(t.includes('euro'))return'💶';if(t.includes('sterlin'))return'💷';if(t)return'💳';return'';})();
@@ -1292,7 +1307,7 @@ function renderZiyaretciTablo(rows){
       <td>${d.aciklama||""}</td>
       <td style="color:var(--muted);font-size:11px">${(d.tarih||'').replace(/-/g,'.')}</td>
       <td><span style="color:${turColor};font-weight:700;font-size:11px">${turLabel}</span></td>
-      <td style="text-align:right;font-family:'Space Mono',monospace;font-size:11px">${fmtB(d.balance||0)}</td>
+      <td style="text-align:right;font-family:'Space Mono',monospace;font-size:11px">${fmtB(d.balance)}</td>
     </tr>`;
   }).join("");
 }
@@ -1315,12 +1330,12 @@ async function araZiyaretci(q){
     if(baslik) baslik.textContent = "👤 " + q.toUpperCase() + " Kayıtları";
     try {
       setSyncDot("loading");
-      const res = await fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretciler&kullanici="+encodeURIComponent(q.trim().toUpperCase()));
+      const res = await fetch(SHEETS_URL+"?action=getAll&sayfa=ziyaretciler&kullanici="+q.trim().toUpperCase());
       const rows = await res.json();
       setSyncDot("ok");
       if(Array.isArray(rows)){
-        ZIY_DATA = normalizeSheetRows(rows); // DATA'yı ezme!
-        renderZiyaretciTablo(ZIY_DATA);
+        ZIY_DATA = rows; // DATA'yı ezme!
+        renderZiyaretciTablo(rows);
       } else {
         ZIY_DATA = [];
         renderZiyaretciTablo([]);
@@ -1346,35 +1361,35 @@ async function araZiyaretci(q){
 }
 
 async function islemlerAc(btn){
-  // Daha önce şifre girildi mi?
   if(sessionStorage.getItem("islemler_acik") === "1"){
     pane("islemler", btn);
     return;
   }
-  const sifre = prompt("🔐 İşlemler için şifre girin:");
+  const sifre = prompt("🔐 İşlemler için yönetici şifresini girin:");
   if(!sifre) return;
-  const hash = await hashSifre(sifre);
-  if(hash === APP_HASH){
-    sessionStorage.setItem("islemler_acik", "1");
-    pane("islemler", btn);
-  } else {
-    showToast("❌ Yanlış şifre!", false);
+  try{
+    const sonuc = await backendLogin(KULLANICI || "YONETICI", sifre);
+    if(sonuc.status === "ok" && sonuc.rol === "yonetici"){
+      sessionStorage.setItem("islemler_acik", "1");
+      pane("islemler", btn);
+    } else {
+      showToast("❌ Yanlış şifre!", false);
+    }
+  } catch(e){
+    showToast("Giriş doğrulanamadı", false);
   }
 }
 
 
-document.addEventListener("DOMContentLoaded", async ()=>{
+document.addEventListener("DOMContentLoaded",()=>{
   applyRol();
   applyRenkler();
   if(!KULLANICI){
     document.getElementById("kullaniciOv").classList.add("show");
     return;
   }
-  if(IS_IZLEYICI){
-    await loadZiyaretciData();
-  } else {
-    await loadFromSheets();
-  }
+  if(IS_IZLEYICI) loadZiyaretciData();
+  else loadFromSheets();
 });
 
 async function loadFromSheets(){
