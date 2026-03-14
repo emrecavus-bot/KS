@@ -497,6 +497,14 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
   </div>
 </div>
 
+<div class="overlay center" id="girisLogOv" onclick="if(event.target===this)closeGirisLog()">
+  <div class="onay-box" style="max-width:420px;text-align:left;max-height:80vh;overflow:auto">
+    <div class="onay-title" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center"><span>👥 Son 1 Hafta Girişleri</span><span onclick="closeGirisLog()" style="cursor:pointer;font-size:20px;line-height:1">✕</span></div>
+    <div id="girisLogList"></div>
+    <div style="margin-top:14px"><button class="btn-cancel" style="width:100%" onclick="closeGirisLog()">Kapat</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -608,7 +616,19 @@ async function hashSifre(s){
 const fmt = n=>"₺"+new Intl.NumberFormat("tr-TR").format(Math.abs(n));
 const fmtB = n=>(n<0?"-":"")+"₺"+new Intl.NumberFormat("tr-TR").format(Math.abs(n));
 
-function withBalance(){let b=0;return DATA.map(d=>({...d,balance:(b+=d.nakit)}));}
+function withBalance(){
+  let running = 0;
+  return DATA.map(d=>{
+    const nakit = parseFloat(d.nakit)||0;
+    const sheetBakiye = (d.bakiye!=="" && d.bakiye!=null) ? parseFloat(d.bakiye) : NaN;
+    if(!Number.isNaN(sheetBakiye) && sheetBakiye !== 0){
+      running = sheetBakiye;
+    }else{
+      running += nakit;
+    }
+    return {...d, balance: running};
+  });
+}
 
 function setSyncDot(s){
   const d=document.getElementById("syncDot"),t=document.getElementById("syncText");
@@ -688,14 +708,14 @@ function buildDropdown(){
 
 function render(){
   const bl=withBalance();
-  const sonKayit = DATA.length ? DATA[DATA.length-1] : null;
-  const sonBakiye = sonKayit && sonKayit.bakiye != null && sonKayit.bakiye !== "" ? parseFloat(sonKayit.bakiye)||0 : (bl.length?bl[bl.length-1].balance:0);
+  const sonKayit = bl.length ? bl[bl.length-1] : null;
+  const sonBakiye = sonKayit ? (parseFloat(sonKayit.balance)||0) : 0;
   const income=DATA.filter(d=>d.nakit>0&&d.tur&&d.tur!=="devir").reduce((s,d)=>s+d.nakit,0);
   const expense=DATA.filter(d=>d.nakit<0).reduce((s,d)=>s+Math.abs(d.nakit),0);
   const dovizTotal=Math.abs(DATA.filter(d=>d.doviz_tip==="dolar").reduce((s,d)=>s+(d.doviz||0),0));
 
   document.getElementById("balanceAmt").textContent=fmtB(sonBakiye);
-  document.getElementById("balanceSub").textContent=sonKayit ? `Sheets J sütunu • ${sonKayit.tarih||""}` : (dovizTotal>0?`${dovizTotal.toLocaleString("tr-TR")} $ döviz pozisyonu`:"Sheets J sütunundan okunuyor");
+  document.getElementById("balanceSub").textContent=sonKayit ? `Index bakiyesi • ${sonKayit.tarih||""}` : (dovizTotal>0?`${dovizTotal.toLocaleString("tr-TR")} $ döviz pozisyonu`:"Index içinden hesaplanıyor");
   document.getElementById("statGelir").textContent=fmt(income);
   document.getElementById("statGider").textContent=fmt(expense);
   document.getElementById("statCount").textContent=DATA.length;
@@ -730,7 +750,7 @@ function render(){
         <td class="td-tarih">${d.tarih}</td>
         <td style="white-space:nowrap"><span style="font-size:10px;font-weight:700;color:${c}">${l}</span></td>
         <td style="white-space:nowrap"><span style="font-size:11px;color:#4A5568;font-weight:600">${d.gir_cik||""}</span></td>
-        <td class="td-bakiye">${fmtB(d.bakiye || 0)}</td>
+        <td class="td-bakiye">${fmtB(d.balance ?? d.bakiye ?? 0)}</td>
       </tr>`;
     }).join("");
   }
@@ -983,6 +1003,9 @@ async function kullaniciKaydet(){
   sessionStorage.setItem("kasa_kullanici", KULLANICI);
   sessionStorage.setItem("kasa_rol", IS_IZLEYICI ? "izleyici" : "yonetici");
   if(!IS_IZLEYICI) sessionStorage.setItem("islemler_acik", "1");
+  const gecmis = JSON.parse(localStorage.getItem("giris_gecmis")||"[]");
+  gecmis.unshift({isim: KULLANICI, rol: IS_IZLEYICI ? "izleyici" : "yonetici", zaman: new Date().toLocaleString("tr-TR"), ts: Date.now()});
+  localStorage.setItem("giris_gecmis", JSON.stringify(gecmis.filter(g => Date.now()-(g.ts||0) < 7*24*60*60*1000).slice(0,50)));
   document.getElementById("kullaniciOv").classList.remove("show");
   applyRol();
   try{
@@ -1134,13 +1157,6 @@ function applyRol(){
   const rol = sessionStorage.getItem("kasa_rol");
   const simdi = new Date().toLocaleString("tr-TR");
 
-  // Giriş geçmişine kaydet
-  if(rol && kullanici){
-    const gecmis = JSON.parse(localStorage.getItem("giris_gecmis")||"[]");
-    gecmis.unshift({isim: kullanici, rol: rol, zaman: simdi, ts: Date.now()});
-    const temiz = gecmis.filter(g => Date.now()-g.ts < 7*24*60*60*1000).slice(0,50);
-    localStorage.setItem("giris_gecmis", JSON.stringify(temiz));
-  }
 
   const navOzet = document.getElementById("navOzet");
   const navZiy = document.getElementById("navZiyaretci");
@@ -1294,8 +1310,20 @@ async function araZiyaretci(q){
       const rows = await res.json();
       setSyncDot("ok");
       if(Array.isArray(rows)){
-        ZIY_DATA = rows; // DATA'yı ezme!
-        renderZiyaretciTablo(rows);
+        ZIY_DATA = rows.map((r,i)=>({
+          id: r.id || ("ara_"+Date.now()+"_"+i),
+          tarih: r.tarih || "",
+          nakit: parseFloat(r.nakit)||0,
+          cari: r.cari||"",
+          doviz: r.doviz ? parseFloat(r.doviz) : null,
+          doviz_tip: r.doviz_tip||"",
+          gir_cik: r.gir_cik||"",
+          tur: r.tur||"",
+          aciklama: r.aciklama||"",
+          bakiye: parseFloat(r.bakiye)||0,
+          synced: true
+        }));
+        renderZiyaretciTablo(ZIY_DATA);
       } else {
         ZIY_DATA = [];
         renderZiyaretciTablo([]);
