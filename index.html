@@ -755,7 +755,7 @@ function render(){
     empty.style.display="none";
     tbl.innerHTML=visible.map(d=>{
       const c=getRenk(d.tur),l=getLabel(d.tur);
-      return `<tr onclick="if(!IS_IZLEYICI)openDetay(${d.id})">
+      return `<tr onclick="openDetay(${d.id})" style="${IS_IZLEYICI ? 'background:#FFF8E7;border-left:3px solid #F6AD55' : (d.kaynak && d.kaynak !== 'yonetici' ? 'background:#F0FFF4;border-left:3px solid #48BB78' : '')}">
         <td class="td-cari">${d.cari||""}</td>
         <td class="td-nakit" style="color:${d.nakit>=0?"var(--gelir)":"var(--gider)"}">${d.nakit>=0?"+":"-"}${fmt(d.nakit)}</td>
         <td class="td-doviz">${d.doviz?(()=>{
