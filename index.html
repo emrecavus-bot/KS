@@ -204,6 +204,7 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
     <button class="nav-btn active" onclick="islemlerAc(this)" id="navIslemler">İşlemler</button>
     
     <button class="nav-btn" id="navOzet" onclick="pane('ozet',this)">Özet</button>
+<button class="nav-btn" id="navKartlar" onclick="pane('kartlar',this);kartLimitleriYukle()">💳 Kartlar</button>
 <button class="nav-btn" id="navZiyaretci" onclick="pane('ziyaretci',this)" style="display:none">👥 Ziyaretçi</button>
   </div>
 </div>
@@ -255,6 +256,18 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
   </div>
   <div class="tablo-wrap"><table class="tablo" id="tabloZiy" style="display:none"><thead id="theadZiy"></thead><tbody id="tbodyZiy"></tbody></table></div>
 </div>
+</div>
+<div class="pane" id="pane-kartlar">
+ <div class="section">
+  <div class="sec-title">Google Sheets · Kartlar ve KMH</div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Kart limitleri ve kalan kullanılabilir limitler. Bu ekran sadece okur, Sheets kayıtlarını değiştirmez.</p>
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+   <button class="chip active" onclick="kartLimitleriYukle()" style="border-radius:9px">↻ Yenile</button>
+   <a href="https://docs.google.com/spreadsheets/d/1347Ohn1_Br_2s_IYidAavGvADm4EG5a83Ds987dOVSM/edit#gid=20261006" target="_blank" rel="noopener" style="font-size:12px;padding:7px">Sheets'te aç ↗</a>
+  </div>
+  <div id="kartLimitDurum" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+  <div id="kartLimitListe"></div>
+ </div>
 </div>
 <div class="pane" id="pane-ozet">
   <div class="section">
@@ -508,6 +521,32 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
 <div class="toast" id="toast"></div>
 
 <script>
+const KART_SHEET_ID="1347Ohn1_Br_2s_IYidAavGvADm4EG5a83Ds987dOVSM";
+function kartPara(v){const n=Number(String(v||"").replace(/[^\\d,.-]/g,"").replace(/\\./g,"").replace(",", "."));return Number.isFinite(n)?n.toLocaleString("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2})+" ₺":"—";}
+function kartLimitleriGoster(rows){
+ const el=document.getElementById("kartLimitListe");el.replaceChildren();
+ const cards=rows.filter(r=>r[0]&&String(r[0]).trim()&&!/^(KARTLAR|KMH|HESAPLAR|TOPLAM)$/i.test(String(r[0]).trim())&&r[1]!==undefined&&r[1]!==null&&String(r[1]).trim()!=="");
+ if(!cards.length)throw Error("Kart verisi bulunamadı");
+ for(const r of cards){
+  const wrap=document.createElement("div");wrap.style.cssText="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px";
+  const title=document.createElement("div");title.style.cssText="font-weight:700;font-size:13px;margin-bottom:9px";title.textContent=r[0];wrap.appendChild(title);
+  const line=document.createElement("div");line.style.cssText="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px";
+  [["Toplam limit",r[1]],["Borç",r[2]],["Kalan limit",r[3]]].forEach(([k,v])=>{const b=document.createElement("div");const l=document.createElement("div");l.style.cssText="font-size:10px;color:var(--muted)";l.textContent=k;const n=document.createElement("div");n.style.cssText="font-size:11px;font-weight:700;overflow-wrap:anywhere";n.textContent=kartPara(v);b.append(l,n);line.appendChild(b)});wrap.appendChild(line);el.appendChild(wrap);
+ }
+ document.getElementById("kartLimitDurum").textContent=cards.length+" hesap · Google Sheets'ten okundu";
+}
+async function kartLimitleriYukle(){
+ const status=document.getElementById("kartLimitDurum");status.textContent="Google Sheets okunuyor…";
+ try{
+  const url="https://docs.google.com/spreadsheets/d/"+KART_SHEET_ID+"/gviz/tq?gid=20261006&range=A2:D53&tqx=out:csv";
+  const response=await fetch(url,{cache:"no-store",credentials:"include"});
+  if(!response.ok)throw Error("Erişim reddedildi");
+  const csv=await response.text();
+  if(csv.trim().startsWith("<"))throw Error("Oturum açılması gerekiyor");
+  const rows=csv.trim().split(/\\r?\\n/).map(line=>{const a=[];let cur="",quoted=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(quoted&&line[i+1]==='"'){cur+='"';i++}else quoted=!quoted}else if(c===","&&!quoted){a.push(cur);cur=""}else cur+=c}a.push(cur);return a});
+  kartLimitleriGoster(rows);
+ }catch(e){status.textContent="Bu tarayıcıdan özel Google Sheets verisine erişilemedi. Limitleri görmek için aşağıdaki bağlantıyı kullanabilirsin.";document.getElementById("kartLimitListe").innerHTML='<a href="https://docs.google.com/spreadsheets/d/1347Ohn1_Br_2s_IYidAavGvADm4EG5a83Ds987dOVSM/edit#gid=20261006" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700">💳 Kart limitlerini Google Sheets’te görüntüle ↗</a>';}
+}
 const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwA5V8uQunKGEndsGm0YHOaCoyOdVBawrrZaOCiyht5HimE8bpIU8nL4od7wWxLNYUy/exec";
 const SK = "kasa2_data";
 const SK_AYAR = "kasa2_ayarlar";
